@@ -16,24 +16,6 @@ from tensorflow.keras.layers import Flatten
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import SGD
 
-def define_model():
-	model = Sequential()
-	model.add(Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same', input_shape=(32, 32, 3)))
-	model.add(Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-	model.add(MaxPooling2D((2, 2)))
-	model.add(Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-	model.add(Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-	model.add(MaxPooling2D((2, 2)))
-	model.add(Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-	model.add(Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-	model.add(MaxPooling2D((2, 2)))
-	model.add(Flatten())
-	model.add(Dense(128, activation='relu', kernel_initializer='he_uniform'))
-	model.add(Dense(10, activation='softmax'))
-	# compilar modelo
-	opt = SGD(lr=0.001, momentum=0.9)
-	model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
-	return model
 
 
 def identity_block(x,filter):
@@ -98,5 +80,61 @@ def ResNet18(shape = (32, 32, 3), classes = 10):
     x = Flatten()(x)
     x = Dense(512, activation = 'relu')(x)
     x = Dense(classes, activation = 'softmax')(x)
-    model = Model(inputs = x_input, outputs = x, name = "ResNet34")
+    model = Model(inputs = x_input, outputs = x, name = "ResNet18")
+    # compilar modelo
+    opt = SGD(learning_rate=0.001, momentum=0.9)
+    model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
     return model
+
+def summarize_diagnostics(history):
+	# plot error
+	pyplot.subplot(211)
+	pyplot.title('Cross Entropy Loss')
+	pyplot.plot(history.history['loss'], color='blue', label='train')
+	pyplot.plot(history.history['val_loss'], color='orange', label='test')
+	# plot exactitud
+	pyplot.subplot(212)
+	pyplot.title('Classification Accuracy')
+	pyplot.plot(history.history['accuracy'], color='blue', label='train')
+	pyplot.plot(history.history['val_accuracy'], color='orange', label='test')
+	# guardar el plot en un archivo ... por si lo queremos publicar
+	filename = sys.argv[0].split('/')[-1]
+	pyplot.savefig(filename + '_plot.png')
+	pyplot.close()
+
+def run_amb_pruebas():
+	# cargar el dataset
+    trainX, trainY, testX, testY = load_dataset()
+	# preparar los pixeles
+    trainX, testX = prep_pixels(trainX, testX)
+	# definir el modelo
+    model = ResNet18()
+    print(model)
+	# entrenar el modelo
+
+    history = model.fit(trainX, trainY, epochs=2, batch_size=64, validation_data=(testX, testY), verbose=1)
+	# evaluar el modelo
+    _, acc = model.evaluate(testX, testY, verbose=0)
+    print('> %.3f' % (acc * 100.0))
+	# curvas de aprendizaje
+    summarize_diagnostics(history)
+
+def prep_pixels(train, test):
+	# convertir de integers a floats
+	train_norm = train.astype('float32')
+	test_norm = test.astype('float32')
+	# normalizae en rango 0-1
+	train_norm = train_norm / 255.0
+	test_norm = test_norm / 255.0
+	# returna iamgenes normalizadas
+	return train_norm, test_norm
+
+def load_dataset():
+	# cargar bases
+	(trainX, trainY), (testX, testY) = cifar10.load_data()
+	# one-hot-encode las etiquetas
+	trainY = to_categorical(trainY)
+	testY = to_categorical(testY)
+	return trainX, trainY, testX, testY
+
+run_amb_pruebas()
